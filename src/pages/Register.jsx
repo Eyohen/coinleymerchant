@@ -446,7 +446,7 @@ const Register = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-      <div className='flex justify-center gap-x-32'>
+      <div className='flex justify-center gap-x-32 items-center'>
         <img src={coinleyauth} className='w-[750px] h-[650px] object-cover rounded-3xl hidden md:block' />
 
         <div>
@@ -463,6 +463,15 @@ const Register = () => {
             <p className="mt-2 text-center text-sm text-gray-600">
               Start accepting crypto payments for your business
             </p>
+
+
+            {/* <div className='border h-1 rounded-xl bg-gray-200 mt-4'></div> */}
+            <div className='flex justify-between mt-6'>
+            <p className='text-gray-500 text-md'>Step 1 of 2</p>
+            <p className='text-md text-[#7042D2] font-medium'>Sign Up</p>
+            </div>
+            <div className='border h-[5px] rounded-xl bg-gradient-to-r from-[#7042D2] from-50% to-gray-200 to-50% mt-2'></div>
+
           </div>
 
           <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
@@ -548,6 +557,7 @@ const Register = () => {
                       type="text"
                       name="businessName"
                       id="businessName"
+                       placeholder='e.g Example Ltd'
                       value={formData.businessName}
                       onChange={handleChange}
                       className={`block w-full pl-10 pr-3 py-2 border ${errors.businessName ? 'border-red-300' : 'border-gray-300'
@@ -572,6 +582,7 @@ const Register = () => {
                       type="email"
                       name="email"
                       id="email"
+                      placeholder='hello@example.com'
                       value={formData.email}
                       onChange={handleChange}
                       className={`block w-full pl-10 pr-3 py-2 border ${errors.email ? 'border-red-300' : 'border-gray-300'
@@ -663,20 +674,7 @@ const Register = () => {
             </div>
           </div>
 
-          {/* Password Requirements */}
-          <div className="mt-4 sm:mx-auto sm:w-full sm:max-w-md">
-            <div className="px-4 sm:px-10">
-              <p className="text-xs text-gray-500">
-                Password must contain:
-              </p>
-              <ul className="mt-1 text-xs text-gray-500 list-disc list-inside">
-                <li>At least 8 characters</li>
-                <li>At least one uppercase letter</li>
-                <li>At least one number</li>
-                <li>At least one special character</li>
-              </ul>
-            </div>
-          </div>
+      
         </div>
       </div>
     </div>
