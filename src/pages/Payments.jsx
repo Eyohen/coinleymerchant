@@ -783,11 +783,7 @@
 
 
 
-
-
-
-
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import axios from 'axios';
 import { URL } from '../url';
 import { 
@@ -855,6 +851,7 @@ const Payments = () => {
   const [formError, setFormError] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [copySuccess, setCopySuccess] = useState('');
+  const [fetchedWallets, setFetchedWallets] = useState(null);
 
   // Fetch available networks from the API
   const fetchNetworks = async () => {
@@ -889,26 +886,8 @@ const Payments = () => {
       if (response.data && response.data.merchant) {
         setMerchantData(response.data.merchant);
         
-        // Update wallet form data with current values
-        const updatedWalletFormData = { ...walletFormData };
-        
-        // Add legacy wallet addresses
-        if (response.data.merchant.walletAddress) {
-          updatedWalletFormData.ethereum = response.data.merchant.walletAddress;
-        }
-        
-        if (response.data.merchant.solWalletAddress) {
-          updatedWalletFormData.solana = response.data.merchant.solWalletAddress;
-        }
-        
-        // Add network-specific wallet addresses from merchantWallets JSON
-        if (response.data.merchant.merchantWallets) {
-          Object.entries(response.data.merchant.merchantWallets).forEach(([network, address]) => {
-            updatedWalletFormData[network] = address;
-          });
-        }
-        
-        setWalletFormData(updatedWalletFormData);
+        // Update wallet form data with values from merchant data
+        updateWalletFormData(response.data.merchant);
       }
     } catch (error) {
       console.error('Error fetching merchant profile:', error);
@@ -927,13 +906,13 @@ const Payments = () => {
       });
       
       if (response.data && response.data.success) {
-        // Format wallet data for display
-        const walletData = response.data.wallets;
+        // Store fetched wallets
+        setFetchedWallets(response.data.wallets);
         
         // Update wallet form data with values from API
         const updatedWalletFormData = { ...walletFormData };
         
-        walletData.forEach(wallet => {
+        response.data.wallets.forEach(wallet => {
           if (wallet.walletAddress) {
             updatedWalletFormData[wallet.networkShortName] = wallet.walletAddress;
           }
@@ -944,6 +923,31 @@ const Payments = () => {
     } catch (error) {
       console.error('Error fetching wallet addresses:', error);
     }
+  };
+
+  // Helper function to update wallet form data from merchant data
+  const updateWalletFormData = (merchant) => {
+    const updatedWalletFormData = { ...walletFormData };
+    
+    // Add legacy wallet addresses
+    if (merchant.walletAddress) {
+      updatedWalletFormData.ethereum = merchant.walletAddress;
+    }
+    
+    if (merchant.solWalletAddress) {
+      updatedWalletFormData.solana = merchant.solWalletAddress;
+    }
+    
+    // Add network-specific wallet addresses from merchantWallets JSON
+    if (merchant.merchantWallets) {
+      Object.entries(merchant.merchantWallets).forEach(([network, address]) => {
+        if (address && address.trim() !== '') {
+          updatedWalletFormData[network] = address;
+        }
+      });
+    }
+    
+    setWalletFormData(updatedWalletFormData);
   };
 
   // Fetch payment methods
@@ -978,6 +982,43 @@ const Payments = () => {
       setLoading(false);
     }
   };
+
+  // Update wallet form data when merchant data or fetched wallets change
+  useEffect(() => {
+    if (merchantData) {
+      // Make sure to update the form with ALL wallet addresses
+      const updatedFormData = { ...walletFormData };
+      
+      // Add legacy wallet addresses
+      if (merchantData.walletAddress) {
+        updatedFormData.ethereum = merchantData.walletAddress;
+      }
+      
+      if (merchantData.solWalletAddress) {
+        updatedFormData.solana = merchantData.solWalletAddress;
+      }
+      
+      // Add merchant wallets from JSON object
+      if (merchantData.merchantWallets && typeof merchantData.merchantWallets === 'object') {
+        Object.entries(merchantData.merchantWallets).forEach(([network, address]) => {
+          if (address && address.trim() !== '') {
+            updatedFormData[network] = address;
+          }
+        });
+      }
+      
+      // Update with values from the wallet API if available
+      if (fetchedWallets) {
+        fetchedWallets.forEach(wallet => {
+          if (wallet.walletAddress && wallet.networkShortName) {
+            updatedFormData[wallet.networkShortName] = wallet.walletAddress;
+          }
+        });
+      }
+      
+      setWalletFormData(updatedFormData);
+    }
+  }, [merchantData, fetchedWallets]);
 
   useEffect(() => {
     if (user && user.apiKey && user.apiSecret) {
@@ -1039,7 +1080,7 @@ const Payments = () => {
     setFormError('');
 
     // Validate at least one wallet is provided
-    const hasWallet = Object.values(walletFormData).some(address => address.trim() !== '');
+    const hasWallet = Object.values(walletFormData).some(address => address && address.trim() !== '');
     if (!hasWallet) {
       setFormError('At least one wallet address is required');
       setIsSubmitting(false);
@@ -1049,7 +1090,7 @@ const Payments = () => {
     // Validate each wallet address format
     const invalidWallets = [];
     Object.entries(walletFormData).forEach(([network, address]) => {
-      if (address && !validateWalletAddress(network, address)) {
+      if (address && address.trim() !== '' && !validateWalletAddress(network, address)) {
         invalidWallets.push(network);
       }
     });
@@ -1068,7 +1109,7 @@ const Payments = () => {
 
       // Add wallet addresses to payload
       Object.entries(walletFormData).forEach(([network, address]) => {
-        if (address.trim() !== '') {
+        if (address && address.trim() !== '') {
           payload.wallets[network] = address.trim();
         }
       });
@@ -1082,6 +1123,8 @@ const Payments = () => {
         payload.solWalletAddress = walletFormData.solana;
       }
 
+      console.log('Updating wallets with payload:', payload);
+      
       const response = await axios.put(`${URL}/api/merchants/wallets`, payload, {
         headers: {
           Authorization: `Bearer ${localStorage.getItem('access_token')}`,
@@ -1089,6 +1132,8 @@ const Payments = () => {
           'x-api-secret': user?.apiSecret || ''
         }
       });
+
+      console.log('Wallet update response:', response.data);
 
       if (response.data && response.data.success) {
         // Update merchant data
@@ -1115,6 +1160,10 @@ const Payments = () => {
         setTimeout(() => {
           setSuccessMessage('');
           setEditWalletModalOpen(false);
+          
+          // Refresh wallet data
+          fetchWallets();
+          fetchMerchantProfile();
         }, 2000);
       }
     } catch (error) {
@@ -1254,13 +1303,33 @@ const Payments = () => {
     return <RiWallet3Line className="mr-2 text-[#7042D2]" />;
   };
 
+  // Debug function to log wallet data
+  const debugWalletData = () => {
+    console.log("Current Merchant Data:", merchantData);
+    console.log("Wallet Form Data:", walletFormData);
+    console.log("Fetched Wallets:", fetchedWallets);
+    
+    if (merchantData?.merchantWallets) {
+      console.log("merchantWallets JSON:", merchantData.merchantWallets);
+      
+      if (merchantData.merchantWallets.algorand) {
+        console.log("Algorand wallet in merchantWallets:", merchantData.merchantWallets.algorand);
+      } else {
+        console.log("No Algorand wallet found in merchantWallets");
+      }
+    }
+  };
+
   return (
     <div className="container mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-2xl font-bold text-gray-800">Payment Methods</h1>
         <div className="flex gap-3">
           <button 
-            onClick={() => fetchData()}
+            onClick={() => {
+              fetchData();
+              debugWalletData(); // Log wallet data for debugging
+            }}
             className="flex items-center gap-2 bg-white border border-gray-300 text-gray-700 px-4 py-2 rounded-md hover:bg-gray-50 transition-all"
           >
             <RiRefreshLine className="text-lg" />
